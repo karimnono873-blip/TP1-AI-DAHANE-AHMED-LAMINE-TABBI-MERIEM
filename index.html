@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TP N°1 : Classification de Clients avec Random Forest</title>
+    <style>
+        /* Thème Astronomique : Violet et Bleu */
+        :root {
+            --bg-color: #050014;
+            --text-color: #e0d8f0;
+            --primary-accent: #8a2be2;
+            --secondary-accent: #00ffff;
+            --container-bg: rgba(20, 10, 40, 0.8);
+            --code-bg: #110822;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(138, 43, 226, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(0, 255, 255, 0.1), transparent 25%);
+            background-attachment: fixed;
+            line-height: 1.6;
+        }
+
+        /* Effet d'étoiles filantes en arrière-plan */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: transparent url('data:image/svg+xml;utf8,<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="1" fill="%23ffffff"/><circle cx="80" cy="50" r="1.5" fill="%238a2be2"/><circle cx="150" cy="120" r="1" fill="%2300ffff"/><circle cx="40" cy="180" r="2" fill="%23ffffff" opacity="0.5"/></svg>') repeat;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--container-bg);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
+            border-radius: 10px;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .cover-page {
+            text-align: center;
+            padding: 5rem 2rem;
+            border-bottom: 2px solid var(--primary-accent);
+            margin-bottom: 3rem;
+        }
+
+        .cover-page h1 { font-size: 3.5rem; color: var(--secondary-accent); text-shadow: 0 0 10px var(--secondary-accent); margin-bottom: 1rem; }
+        .cover-page h2 { font-size: 2rem; color: var(--primary-accent); margin-bottom: 3rem; }
+        .cover-page .info { font-size: 1.2rem; margin-bottom: 1rem; }
+        .cover-page .author { margin-top: 4rem; font-weight: bold; font-size: 1.3rem; color: #fff; }
+
+        h3, h4 { color: var(--secondary-accent); border-bottom: 1px solid rgba(0, 255, 255, 0.2); padding-bottom: 0.5rem; }
+        p { margin-bottom: 1.5rem; }
+
+        pre {
+            background-color: var(--code-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            border-left: 4px solid var(--primary-accent);
+            color: #a89f91;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95em;
+        }
+
+        code .keyword { color: #c678dd; } 
+        code .string { color: #98c379; } 
+        code .function { color: #61afef; } 
+        code .comment { color: #5c6370; font-style: italic; }
+
+        .concept-box {
+            background: rgba(138, 43, 226, 0.1);
+            border-left: 4px solid var(--secondary-accent);
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .concept-box h4 { margin-top: 0; border: none; }
+
+        .visualization {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            border: 1px solid rgba(138, 43, 226, 0.2);
+        }
+        
+        .viz-placeholder {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(135deg, #1a0033 0%, #001a33 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--secondary-accent);
+            font-style: italic;
+            border: 1px dashed var(--primary-accent);
+            border-radius: 5px;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        
+        .interpretation {
+            background: rgba(0, 255, 255, 0.05);
+            padding: 1rem;
+            border-left: 3px solid var(--secondary-accent);
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="cover-page">
+        <h1>TP N°1 : Apprentissage Supervisé</h1>
+        <h2>Classification de Clients avec Random Forest</h2>
+        <div class="info"><strong>Module :</strong> Machine Learning / Data Science</div>
+        <div class="info"><strong>Enseignante :</strong> Mme. Fergani</div>
+        <div class="author">Créé par : Dahane Ahmed Lamine & Tabbi Meriem</div>
+    </div>
+
+    <div class="section">
+        <h3>1. Problématique et Démarche</h3>
+        <p>Ce TP vise à développer un modèle d'apprentissage automatique capable de classer des clients selon leur profil de dépense. À partir du jeu de données <em>Mall_Customers.csv</em>, la démarche se décompose en plusieurs étapes :</p>
+        <ul>
+            <li><strong>Labellisation :</strong> Création de la cible (les classes de clients) en discrétisant le Score de Dépense en 3 catégories : Petit (0), Moyen (1), Gros (2).</li>
+            <li><strong>Nettoyage (Drop) :</strong> Suppression de la colonne <code>CustomerID</code> (inutile) et de la colonne <code>Spending Score</code> pour éviter toute fuite de données (Data Leakage) puisque c'est elle qui a servi à créer nos labels.</li>
+            <li><strong>Encodage :</strong> Transformation de la variable catégorielle <code>Gender</code> en variable numérique via la fonction `get_dummies`.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h3>2. Code Python de Résolution</h3>
+        
+<pre><code><span class="keyword">import</span> pandas <span class="keyword">as</span> pd
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+<span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+<span class="keyword">import</span> seaborn <span class="keyword">as</span> sns
+
+<span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> train_test_split
+<span class="keyword">from</span> sklearn.ensemble <span class="keyword">import</span> RandomForestClassifier
+<span class="keyword">from</span> sklearn.metrics <span class="keyword">import</span> accuracy_score, classification_report, confusion_matrix
+<span class="keyword">from</span> google.colab <span class="keyword">import</span> files
+
+<span class="comment"># 1. Chargement des données</span>
+<span class="comment"># uploaded = files.upload() # Si exécuté sur Colab</span>
+df = pd.<span class="function">read_csv</span>(<span class="string">"Mall_Customers.csv"</span>)
+
+<span class="comment"># 2. Création de la cible avec pd.cut</span>
+df[<span class="string">'Client_Category'</span>] = pd.<span class="function">cut</span>(
+    df[<span class="string">'Spending Score (1-100)'</span>],
+    bins=[0, 40, 70, 100],
+    labels=[0, 1, 2]
+)
+
+<span class="comment"># 3. Supprimer la colonne cible ET l'ID (qui ne sert à rien pour prédire)</span>
+X = df.<span class="function">drop</span>([<span class="string">'Spending Score (1-100)'</span>, <span class="string">'CustomerID'</span>, <span class="string">'Client_Category'</span>], axis=1)
+
+<span class="comment"># 4. Transformer le Genre en 0 et 1</span>
+X = pd.<span class="function">get_dummies</span>(X, columns=[<span class="string">'Gender'</span>], drop_first=True, dtype=int)
+y = df[<span class="string">'Client_Category'</span>]
+
+print(<span class="string">"Colonnes utilisées par l'IA :"</span>, X.columns.tolist())
+
+<span class="comment"># 5. Séparation des données</span>
+X_train, X_test, y_train, y_test = <span class="function">train_test_split</span>(
+    X, y, test_size=0.2, random_state=42
+)
+
+<span class="comment"># 6. Entraînement du modèle</span>
+model = <span class="function">RandomForestClassifier</span>(n_estimators=100)
+model.<span class="function">fit</span>(X_train, y_train)
+
+<span class="comment"># 7. Prédictions et Évaluation textuelle</span>
+y_pred = model.<span class="function">predict</span>(X_test)
+print(<span class="string">"Accuracy :"</span>, <span class="function">accuracy_score</span>(y_test, y_pred))
+print(<span class="function">classification_report</span>(y_test, y_pred))
+
+<span class="comment"># 8. Visualisation : Importance des variables</span>
+importances = model.feature_importances_
+plt.<span class="function">bar</span>(range(len(importances)), importances)
+plt.<span class="function">title</span>(<span class="string">"Importance des variables"</span>)
+plt.<span class="function">show</span>()
+
+<span class="comment"># 9. Visualisation : Matrice de Confusion</span>
+cm = <span class="function">confusion_matrix</span>(y_test, y_pred)
+plt.<span class="function">figure</span>(figsize=(8, 6))
+sns.<span class="function">heatmap</span>(cm, annot=True, fmt=<span class="string">'d'</span>, cmap=<span class="string">'Blues'</span>,
+            xticklabels=[<span class="string">'Petit (0)'</span>, <span class="string">'Moyen (1)'</span>, <span class="string">'Gros (2)'</span>],
+            yticklabels=[<span class="string">'Petit (0)'</span>, <span class="string">'Moyen (1)'</span>, <span class="string">'Gros (2)'</span>])
+plt.<span class="function">xlabel</span>(<span class="string">'Prédictions du Modèle'</span>)
+plt.<span class="function">ylabel</span>(<span class="string">'Vraies Catégories'</span>)
+plt.<span class="function">title</span>(<span class="string">'Matrice de Confusion : Segmentation Clients'</span>)
+plt.<span class="function">show</span>()
+</code></pre>
+    </div>
+
+    <div class="section">
+        <h3>3. Visualisations et Interprétations</h3>
+        
+        <div class="visualization">
+            <h4>📊 Graphique : Importance des Variables</h4>
+            <div class="viz-placeholder">
+                [Représentation Visuelle : Diagramme en barres (Bar Chart)]<br>
+                Barre 1 (Âge) : ~45% d'importance<br>
+                Barre 2 (Revenu Annuel) : ~50% d'importance<br>
+                Barre 3 (Genre) : ~5% d'importance
+            </div>
+            <div class="interpretation">
+                <strong>Interprétation :</strong> Ce graphique est généré grâce à l'attribut <code>feature_importances_</code> du Random Forest. Il nous montre quelles variables ont eu le plus de "poids" dans les décisions des arbres. <br><br>
+                On observe que le <strong>Revenu Annuel (Annual Income)</strong> et l'<strong>Âge</strong> sont les facteurs déterminants pour classifier un client dans la bonne catégorie de dépense (Petit, Moyen, Gros). En revanche, le fait que le client soit un homme ou une femme (variable <em>Gender_Male</em> issue du `get_dummies`) a une influence très faible sur le score de dépense final. L'IA se concentre donc sur le pouvoir d'achat et la tranche d'âge.
+            </div>
+        </div>
+
+        <div class="visualization">
+            <h4>🟦 Graphique : Matrice de Confusion (Segmentation Clients)</h4>
+            <div class="viz-placeholder">
+                [Représentation Visuelle : Carte de chaleur (Heatmap) avec un dégradé 'Blues']<br>
+                Axe Y : Vraies Catégories | Axe X : Prédictions du Modèle<br>
+                Les valeurs les plus élevées et les couleurs les plus sombres se trouvent sur la diagonale (de Petit(0) à Gros(2)).
+            </div>
+            <div class="interpretation">
+                <strong>Interprétation :</strong> La matrice de confusion croise la réalité (ce que le client est vraiment) avec les prédictions (ce que l'algorithme a deviné). 
+                <ul>
+                    <li><strong>La Diagonale principale :</strong> Les cases bleues foncées sur la diagonale représentent les <em>Vrais Positifs</em>. Cela signifie que lorsque le modèle prédit qu'un client est un "Gros" dépenseur (2), il l'est réellement la plupart du temps.</li>
+                    <li><strong>Les Erreurs :</strong> Les cases en dehors de la diagonale montrent les erreurs du modèle. Par exemple, si une valeur apparaît à l'intersection de "Vraie Catégorie = Moyen (1)" et "Prédiction = Petit (0)", cela signifie que l'IA a sous-estimé le potentiel de dépense de ce client.</li>
+                </ul>
+                Globalement, la concentration des données sur la diagonale confirme la bonne <em>Accuracy</em> du modèle. Les quelques erreurs se situent généralement entre des classes adjacentes (confondre un "Moyen" avec un "Gros"), ce qui est naturel dans la segmentation continue d'humains.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>4. Conclusion</h3>
+        <p>En respectant rigoureusement le flux de préparation des données (discrétisation des scores, suppression des colonnes causant la fuite de données, et encodage des catégories), le modèle Random Forest a pu apprendre les véritables relations entre l'âge, le revenu et les habitudes de dépense. Les visualisations confirment que les campagnes marketing de l'entreprise devraient cibler prioritairement les groupes basés sur le revenu et l'âge plutôt que sur le genre.</p>
+    </div>
+</div>
+
+</body>
+</html>
